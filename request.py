@@ -63,10 +63,10 @@ if __name__ == "__main__":
 	#	print(repr(e))
 	#
 	#print(r.text)
+	import time
 
 
-
-	req = Request(timeout=0.1)
+	req = Request(timeout=2)
 
 	urls = [
 		"http://127.0.0.1:6666/badservice/status/200",
@@ -77,26 +77,32 @@ if __name__ == "__main__":
 	]
 
 	for u in urls:
+		t0 = time.time()
 		try:
 			res = req.do("GET", u)
 		except RetryError as e:
-			print("RetryError", repr(e) )
+			t1 = time.time() - t0
+			print("RetryError", t1, repr(e) )
 			print()
 
 		except ConnectionError as e:
-			print("ConnectionError", repr(e) )
+			t1 = time.time() - t0
+			print("ConnectionError", t1, repr(e) )
 			print()
 
 		except RequestException as e:
-			print ("RequestException", repr(e) )
+			t1 = time.time() - t0
+			print ("RequestException", t1, repr(e) )
 			print()
 
 		except Exception as e:
-			print("Exception", repr(e) )
+			t1 = time.time() - t0
+			print("Exception", t1, repr(e) )
 			print()
 
 		else:
-			print("status:", res.status_code)
+			t1 = time.time() - t0
+			print("status:", t1, res.status_code)
 
 
 

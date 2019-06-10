@@ -1,33 +1,39 @@
+import time
 import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import *
 from requests.packages.urllib3.util.retry import Retry
 
 
-def request_retry(retries=3, backoff_factor=0.3,
-		status_forcelist=(500, 502, 503, 504), session=None):
+class Reretry(Retry):
 
-	s = session or requests.Session()
+	def __init__(self, **kwargs):
+		self.__callbacks = kwargs.pop("callbacks", {})
+		super(Reretry, self).__init__(**kwargs)
 
-	retry = Retry(
-		total=retries,
-		read=retries,
-		connect=retries,
-		backoff_factor=backoff_factor,
-		status_forcelist=status_forcelist,
-	)
-	a = HTTPAdapter(max_retries=retry)
-	s.mount("http://", a)
-	s.mount("https://", a)
+	def new(self, **kwargs):
+		kwargs["callbacks"] = self.__callbacks
+		return super(Reretry, self).new(**kwargs)
 
-	return s
+	def increment(self, method, url, *args, **kwargs):
+		if self.__callbacks.get("retry", None):
+			self.__callbacks["retry"](url)
+		return super(Reretry, self).increment(method, url, *args, **kwargs)
+
+	def sleep(self, *args,  **kwargs):
+		if self.__callbacks.get("sleep", None):
+			t0 = time.time()
+			r = super(Reretry, self).sleep(*args, **kwargs)
+			self.__callbacks["sleep"](time.time() - t0)
+			return r
+		return super(Reretry, self).sleep(*args, **kwargs)
 
 
 class Request(object):
 
 	def __init__(self, retries=3, backoff_factor=0.3, 
-			status_forcelist=(500, 502, 503, 504), 
-			session=None, timeout=None, cert=None):
+			status_forcelist=(500, 501, 502, 503, 504), 
+			session=None, timeout=None, cert=None, callbacks={}):
 
 		self.retries = 3
 		self.backoff_factor = 0.3
@@ -35,13 +41,15 @@ class Request(object):
 		self.session = session or requests.Session()
 		self.timeout = timeout
 		self.cert = cert
+		self.callbacks = callbacks
 
-		retry = Retry(
+		retry = Reretry(
 			total=retries,
 			read=retries,
 			connect=retries,
 			backoff_factor=backoff_factor,
 			status_forcelist=status_forcelist,
+			callbacks=callbacks,
 		)
 		a = HTTPAdapter(max_retries=retry)
 		self.session.mount("http://", a)
@@ -50,9 +58,18 @@ class Request(object):
 
 	def do(self, method, url, **kwargs):
 
+		timeout = kwargs.pop("timeout", None) or self.timeout
+		cert = kwargs.pop("cert", None) or self.cert
+
+		if self.callbacks.get("pre_request", None):
+			self.callbacks["pre_request"](url)
+
 		r = self.session.request(method, url,
-			timeout=self.timeout, cert=self.cert, **kwargs)
+			timeout=timeout, cert=cert, **kwargs)
 	
+		if self.callbacks.get("post_request", None):
+			self.callbacks["post_request"](url)
+
 		return r
 
 
@@ -63,9 +80,21 @@ if __name__ == "__main__":
 	#	print(repr(e))
 	#
 	#print(r.text)
-	import time
 
+	def cb(url):
+		print("call from retry URL:", url)
 
+	def cb2(duration):
+		print("Call from sleep. Slept for", duration)
+
+	def cb3(url):
+		print("Call from pre_request", url)
+
+	def cb4(url):
+		print("Call from post_request", url)
+
+	#req = Request(timeout=2, callbacks={"retry":cb, "sleep": cb2, "pre_request":cb3, "post_request":cb4})
+	#req = Request(timeout=2, callbacks={})
 	req = Request(timeout=2)
 
 	urls = [

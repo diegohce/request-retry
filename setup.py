@@ -16,7 +16,7 @@ setup(name='rerequest',
     url='http://10.54.130.13/core/rerequest',
     author='Diego Cena',
     author_email='dhcena@kiusys.com',
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests"]),
     zip_safe=False,
 #    package_data={'':['schemas/*.json']},
     install_requires=install_requires)

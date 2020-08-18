@@ -5,7 +5,7 @@ Python `requests` replacement module with retries for timeout, dropped connectio
 
 ## Default values (constructor)
 
-```json
+```python
 class Request(object):
 
     def __init__(self, retries=3, backoff_factor=0.3,

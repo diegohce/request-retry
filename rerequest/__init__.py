@@ -30,10 +30,12 @@ class Reretry(Retry):
 
 
 class Request(object):
+    DEBIAN_CA_BUNDLE_PATH = "/etc/ssl/certs/ca-certificates.crt"
 
     def __init__(self, retries=3, backoff_factor=0.3,
             status_forcelist=(500, 501, 502, 503, 504),
-            session=None, timeout=None, cert=None, callbacks={}):
+            session=None, timeout=None, cert=None, callbacks={}, 
+            verify=True):
 
         self.retries = 3
         self.backoff_factor = 0.3
@@ -42,6 +44,12 @@ class Request(object):
         self.timeout = timeout
         self.cert = cert
         self.callbacks = callbacks
+        self.verify = verify
+        if self.verify is True or self.verify is None:
+            # NOTE: forced to use debian CAs.
+            # This can be overriden by settings verify
+            # as a path to a crt file or path
+            self.verify = self.DEBIAN_CA_BUNDLE_PATH
 
         retry = Reretry(
             total=retries,
@@ -60,12 +68,13 @@ class Request(object):
 
         timeout = kwargs.pop("timeout", None) or self.timeout
         cert = kwargs.pop("cert", None) or self.cert
+        verify = kwargs.pop("verify", None) or self.verify
 
         if self.callbacks.get("pre_request", None):
             self.callbacks["pre_request"](url)
 
         r = self.session.request(method, url,
-            timeout=timeout, cert=cert, **kwargs)
+            timeout=timeout, cert=cert, verify=verify, **kwargs)
 
         if self.callbacks.get("post_request", None):
             self.callbacks["post_request"](url)
